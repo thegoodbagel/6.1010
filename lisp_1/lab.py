@@ -155,10 +155,23 @@ def calc_sub(*args):
     first_num, *rest_nums = args
     return first_num - scheme_builtins['+'](*rest_nums)
 
+def calc_mult(*args):
+    product = 1
+    for i in args:
+        product *= i
+    return product
+
+def calc_div(*args):
+    if len(args) == 1:
+        return 1 / args[0]
+    first_num, *rest_nums = args
+    return first_num / scheme_builtins['*'](*rest_nums)
 
 scheme_builtins = {
     "+": lambda *args: sum(args),
     "-": calc_sub,
+    "*": calc_mult,
+    "/": calc_div,
 }
 
 
@@ -177,7 +190,20 @@ def evaluate(tree):
         tree (type varies): a fully parsed expression, as the output from the
                             parse function
     """
-    raise NotImplementedError
+    if isinstance(tree, str):
+        if tree in scheme_builtins:
+            return scheme_builtins[tree]
+        raise SchemeNameError
+    if isinstance(tree, int) or isinstance(tree, float):
+        return tree
+    ## tree is S-expression (list)
+    operation = evaluate(tree[0])
+    if not callable(operation):
+        raise SchemeEvaluationError
+    args = []
+    for i in range(1, len(tree)):
+        args.append(evaluate(tree[i]))
+    return operation(*tuple(args))
 
 
 if __name__ == "__main__":
