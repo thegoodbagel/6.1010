@@ -84,7 +84,25 @@ def tokenize(source):
         source (str): a string containing the source code of a Scheme
                       expression
     """
-    raise NotImplementedError
+    source += " " ## so we add last real token
+    tokens = []
+    comment = False
+    non_real_tokens = {"(", ")", " ", "\n", ";"}
+    real_token = ""
+
+    for char in source:
+        if not comment and char not in non_real_tokens:
+            real_token += char
+        else:
+            if real_token: tokens.append(real_token)
+            real_token = "" 
+            
+            if char == " ": continue
+            elif char in {"(", ")"} and not comment: 
+                tokens.append(char)
+            elif char == ";": comment = True
+            elif char == "\n": comment = False
+    return tokens
 
 
 def parse(tokens):
