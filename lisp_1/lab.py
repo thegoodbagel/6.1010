@@ -96,7 +96,7 @@ def tokenize(source):
         else:
             if real_token: tokens.append(real_token)
             real_token = "" 
-            
+
             if char == " ": continue
             elif char in {"(", ")"} and not comment: 
                 tokens.append(char)
@@ -115,7 +115,33 @@ def parse(tokens):
     Arguments:
         tokens (list): a list of strings representing tokens
     """
-    raise NotImplementedError
+    
+    def parse_rec(start, end):
+        if start == end:
+            return number_or_symbol(tokens[start])
+        
+        parsed_tokens = []
+        token_index = start+1
+
+        while token_index < end:
+            new_start = token_index
+            if tokens[token_index] == "(":
+                num_lpar = 0
+                num_rpar = 0
+                while token_index < end:
+                    if tokens[token_index] == "(":
+                        num_lpar += 1
+                    elif tokens[token_index] == ")":
+                        num_rpar += 1
+                        if num_rpar == num_lpar:
+                            break
+                    token_index += 1
+            new_end = token_index
+            parsed_tokens.append(parse_rec(new_start, new_end))
+            token_index += 1
+        return parsed_tokens
+
+    return parse_rec(0, len(tokens)-1)
 
 
 ######################
