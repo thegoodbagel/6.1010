@@ -239,9 +239,20 @@ comparison_builtins = {
 #############################
 
 class Pair:
+    EMPTY_LIST = None
+
     def __init__(self, car, cdr):
         self.car = car
         self.cdr = cdr
+
+    def __str__(self):
+        return f'{self.car}, {self.cdr}'
+    
+    def __eq__(self, other):
+        print("comparing pairs: " + str(self) + " and " + str(other))
+        if type(self) != type(other):
+            return False
+        return self.car == other.car and self.cdr == other.cdr
 
 def isCell(obj):
     return isinstance(obj, Pair)
@@ -249,21 +260,29 @@ def isCell(obj):
 def create_pair(*args):
     if len(args) != 2:
         raise SchemeEvaluationError
+        
     return Pair(args[0], args[1])
 
-def get_pair_elem(elem_num, *args):
+def get_pair_elem(elem_num, args):
     if len(args) != 1 or not isCell(args[0]):
         raise SchemeEvaluationError
     if elem_num == 0:
         return args[0].car
     return args[0].cdr
 
-pair_builtins = {
+def create_list(*args):
+    list = Pair.EMPTY_LIST
+    for i in range(len(args)-1, -1, -1):
+        list = create_pair(args[i], list)
+    print("created list: " + str(list))
+    return list
+
+list_builtins = {
     "cons": create_pair,
     "car": lambda *args: get_pair_elem(0, args),
     "cdr": lambda *args: get_pair_elem(1, args),
+    "list": create_list,
 }
-
 #############################
 # Global Variables #
 #############################
@@ -274,14 +293,11 @@ frame_builtins = {
     "if": evaluate_conditional,
 }
 
-GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtins | pair_builtins)
+GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtins | list_builtins)
 
 #############################
 # Evaluation #
 #############################
-
-def isEmpty(token):
-    return len(token)==0
 
 def isNum(token):
     return isinstance(token, int) or isinstance(token, float)
@@ -289,11 +305,17 @@ def isNum(token):
 def isBool(token):
     return (isStr(token) and token in booleans)
 
+def isEmptyList(token):
+    return len(token)==0
+
 def isStr(token):
     return isinstance(token, str)
 
 def isList(token):
     return isinstance(token, list)
+
+
+
 
 def evaluate(tree, frame=None):
     if frame == None:
@@ -305,8 +327,8 @@ def evaluate(tree, frame=None):
     if isBool(tree):
         return booleans[tree]
     
-    if isEmpty(tree):
-        return None
+    if isEmptyList(tree):
+        return Pair.EMPTY_LIST
         
     if isStr(tree):
         return get(tree, frame)
@@ -335,7 +357,7 @@ def evaluate(tree, frame=None):
     
     if first_elem == "and" or first_elem == "or":
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
-
+    
     args = []
     for i in range(1, len(tree)):
         args.append(evaluate(tree[i], frame))
