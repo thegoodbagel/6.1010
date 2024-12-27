@@ -191,7 +191,7 @@ class Frame:
 def make_initial_frame():   
     return Frame(GLOBAL_FRAME)
 
-def define(variable, value, frame):
+def create_variable(variable, value, frame):
     frame.namespace[variable] = value
     return value
 
@@ -202,12 +202,37 @@ def get(variable, frame):
         frame = frame.parent
     raise SchemeNameError
 
+#############################
+# Functions #
+#############################
+
+class Function:
+    def __init__(self, param_list, expr, enclosing_frame):
+        self.param = tuple(param_list)
+        self.expr = expr
+        self.frame = enclosing_frame
+
+    def __call__(self, *args):
+        if len(args) != len(self.param):
+            raise SchemeEvaluationError
+        new_frame = Frame(self.frame)
+        for (param, val) in zip(self.param, args):
+            new_frame.namespace[param] = val
+        return evaluate(self.expr, new_frame)
+    
+    def __str__(self):
+        return "a function"
+
+def create_function(arg, expr, frame):
+    new_func = Function(arg, expr, frame)
+    return new_func
+
 frame_builtins = {
-    "define": define,
+    "define": create_variable,
+    "lambda": create_function,
 }
 
 GLOBAL_FRAME = Frame(None, scheme_builtins | frame_builtins)
-print("GLOBAL FRAME: " + str(GLOBAL_FRAME))
 
 ##############
 # Evaluation #
@@ -229,8 +254,6 @@ def evaluate(tree, frame=None):
                             parse function
     """
 
-    
-
     if frame == None:
         frame = make_initial_frame()
 
@@ -249,9 +272,11 @@ def evaluate(tree, frame=None):
         raise SchemeEvaluationError
     
     if first_elem == "define":
-       return define(tree[1], evaluate(tree[2], frame), frame)
+        return create_variable(tree[1], evaluate(tree[2], frame), frame)
     
-    print("function not define function")
+    if first_elem == "lambda":
+        return create_function(tree[1], tree[2], frame)
+
     args = []
     for i in range(1, len(tree)):
         args.append(evaluate(tree[i], frame))
