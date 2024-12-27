@@ -59,15 +59,33 @@ def tokenize(source):
             elif char == "\n": comment = False
     return tokens
 
+keywords = {
+    "define",
+    "lambda",
+    "if",
+}
 
 def parse(tokens):
     def parse_rec(start, end):
+        lpar = 0
+        rpar = 0
+        for i in range(start, end+1):
+            token = tokens[i]
+            if token == "(": lpar += 1
+            elif token == ")": rpar += 1
+            if rpar > lpar: raise SchemeSyntaxError
+            if token in keywords and \
+                (not start == end) and \
+                ((i == start) or (tokens[i-1] != "(")):
+                raise SchemeSyntaxError
+        if lpar != rpar: raise SchemeSyntaxError
+
         if start == end:
             return number_or_symbol(tokens[start])
-        
+
         parsed_tokens = []
         token_index = start+1
-
+        
         while token_index < end:
             new_start = token_index
             if tokens[token_index] == "(":
@@ -137,6 +155,9 @@ def make_initial_frame():
 
 def create_variable(variable, value, frame):
     frame.namespace[variable] = value
+    print("")
+    print(f"defined variable {variable} to value {value}")
+    print(frame)
     return value
 
 def get(variable, frame):
@@ -171,19 +192,72 @@ def create_function(arg, expr, frame):
     new_func = Function(arg, expr, frame)
     return new_func
 
+#############################
+# Conditionals #
+#############################
+
+def evaluate_conditional(pred, true_expr, false_expr, frame):
+    if evaluate(pred, frame):
+        return evaluate(true_expr, frame)
+    return evaluate(false_expr, frame)
+
+booleans = {
+    "#t": True,
+    "#f": False,
+}
+
+def list_compare(func, args):
+    n = len(args)
+    if n == 1:
+        return True
+    for i in range(0, n-1):
+        if not func(args[i], args[i+1]):
+            return False
+    return True
+
+def list_iter(crit_bool, args, frame):
+    for x in args:
+        if evaluate(x, frame) == crit_bool:
+            return crit_bool
+    return not crit_bool
+
+def negate(*args):
+    if len(args) != 1:
+        raise SchemeEvaluationError
+    return not args[0]
+
+comparison_builtins = {
+    "equal?" : lambda *args: list_compare( (lambda x, y: x == y), args),
+    ">" : lambda *args: list_compare( (lambda x, y: x > y), args),
+    ">=" : lambda *args: list_compare( (lambda x, y: x >= y), args),
+    "<" : lambda *args: list_compare( (lambda x, y: x < y), args),
+    "<=" : lambda *args: list_compare( (lambda x, y: x <= y), args),
+    "and" : lambda args, frame: list_iter(False, args, frame), ##special form
+    "or" : lambda args, frame: list_iter(True, args, frame), ##special form
+    "not" : negate,
+}
+
+#############################
+# Global Variables #
+#############################
+
 frame_builtins = {
     "define": create_variable,
     "lambda": create_function,
+    "if": evaluate_conditional,
 }
 
-GLOBAL_FRAME = Frame(None, scheme_builtins | frame_builtins)
+GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtins)
 
-##############
+#############################
 # Evaluation #
-##############
+#############################
 
 def isNum(token):
     return isinstance(token, int) or isinstance(token, float)
+
+def isBool(token):
+    return (isStr(token) and token in booleans)
 
 def isStr(token):
     return isinstance(token, str)
@@ -197,10 +271,15 @@ def evaluate(tree, frame=None):
 
     if isNum(tree):
         return tree
+    
+    if isBool(tree):
+        return booleans[tree]
         
     if isStr(tree):
         return get(tree, frame)
     
+    # print("tree: " + str(tree))
+
     first_elem = tree[0]
     func = evaluate(first_elem, frame)
     if not callable(func):
@@ -217,6 +296,16 @@ def evaluate(tree, frame=None):
 
     if first_elem == "lambda":
         return create_function(tree[1], tree[2], frame)
+    
+    if first_elem == "if":
+        print("if statement encountered: " + str(tree))
+        # print(frame)
+        return evaluate_conditional(tree[1], tree[2], tree[3], frame)
+    
+    if first_elem == "and" or first_elem == "or":
+        print("and/or comparison tree: " + str(tree))
+        print("arguments: " + str(tuple([tree[i] for i in range(1, len(tree))])))
+        return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
 
     args = []
     for i in range(1, len(tree)):
