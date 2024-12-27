@@ -244,6 +244,9 @@ def isNum(token):
 def isStr(token):
     return isinstance(token, str)
 
+def isList(token):
+    return isinstance(token, list)
+
 def evaluate(tree, frame=None):
     """
     Evaluate the given syntax tree according to the rules of the Scheme
@@ -272,8 +275,14 @@ def evaluate(tree, frame=None):
         raise SchemeEvaluationError
     
     if first_elem == "define":
-        return create_variable(tree[1], evaluate(tree[2], frame), frame)
-    
+        if not isList(tree[1]):
+            name = tree[1]
+            value = evaluate(tree[2], frame)
+        else: 
+            name = tree[1][0]
+            value = create_function(tree[1][1:], tree[2], frame)
+        return create_variable(name, value, frame)
+
     if first_elem == "lambda":
         return create_function(tree[1], tree[2], frame)
 
