@@ -151,7 +151,6 @@ def parse(tokens):
 def calc_sub(*args):
     if len(args) == 1:
         return -args[0]
-
     first_num, *rest_nums = args
     return first_num - scheme_builtins['+'](*rest_nums)
 
@@ -174,14 +173,53 @@ scheme_builtins = {
     "/": calc_div,
 }
 
+#############################
+# Frames and Variables #
+#############################
 
+    
+class Frame:
+    def __init__(self, parent=None, namespace=None):
+        self.parent = parent
+        self.namespace = namespace
+        if namespace == None:
+            self.namespace = dict()
+
+    def __str__(self):
+        return f'namespace: {str([x for x in self.namespace])}'
+
+def make_initial_frame():   
+    return Frame(GLOBAL_FRAME)
+
+def define(variable, value, frame):
+    frame.namespace[variable] = value
+    return value
+
+def get(variable, frame):
+    while frame:
+        if variable in frame.namespace:
+            return frame.namespace[variable]
+        frame = frame.parent
+    raise SchemeNameError
+
+frame_builtins = {
+    "define": define,
+}
+
+GLOBAL_FRAME = Frame(None, scheme_builtins | frame_builtins)
+print("GLOBAL FRAME: " + str(GLOBAL_FRAME))
 
 ##############
 # Evaluation #
 ##############
 
+def isNum(token):
+    return isinstance(token, int) or isinstance(token, float)
 
-def evaluate(tree):
+def isStr(token):
+    return isinstance(token, str)
+
+def evaluate(tree, frame=None):
     """
     Evaluate the given syntax tree according to the rules of the Scheme
     language.
@@ -190,20 +228,34 @@ def evaluate(tree):
         tree (type varies): a fully parsed expression, as the output from the
                             parse function
     """
-    if isinstance(tree, str):
-        if tree in scheme_builtins:
-            return scheme_builtins[tree]
-        raise SchemeNameError
-    if isinstance(tree, int) or isinstance(tree, float):
+
+    
+
+    if frame == None:
+        frame = make_initial_frame()
+
+    if isNum(tree):
         return tree
-    ## tree is S-expression (list)
-    operation = evaluate(tree[0])
-    if not callable(operation):
+        
+    if isStr(tree):
+        return get(tree, frame)
+    
+    print("tree: " + str(tree))
+    print("frame: " + str(frame))
+    
+    first_elem = tree[0]
+    func = evaluate(first_elem, frame)
+    if not callable(func):
         raise SchemeEvaluationError
+    
+    if first_elem == "define":
+       return define(tree[1], evaluate(tree[2], frame), frame)
+    
+    print("function not define function")
     args = []
     for i in range(1, len(tree)):
-        args.append(evaluate(tree[i]))
-    return operation(*tuple(args))
+        args.append(evaluate(tree[i], frame))
+    return func(*tuple(args))
 
 
 if __name__ == "__main__":
