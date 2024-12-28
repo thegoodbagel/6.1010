@@ -198,6 +198,11 @@ booleans = {
     "#f": False,
 }
 
+booleans_rev = {
+    True: "#t",
+    False: "#f",
+}
+
 def evaluate_conditional(pred, true_expr, false_expr, frame):
     if evaluate(pred, frame):
         return evaluate(true_expr, frame)
@@ -246,7 +251,7 @@ class Pair:
         self.cdr = cdr
 
     def __str__(self):
-        return f'{self.car}, {self.cdr}'
+        return f'({self.car}, {self.cdr})'
     
     def __eq__(self, other):
         print("comparing pairs: " + str(self) + " and " + str(other))
@@ -254,17 +259,16 @@ class Pair:
             return False
         return self.car == other.car and self.cdr == other.cdr
 
-def isCell(obj):
+def isCons(obj):
     return isinstance(obj, Pair)
 
 def create_pair(*args):
     if len(args) != 2:
         raise SchemeEvaluationError
-        
     return Pair(args[0], args[1])
 
 def get_pair_elem(elem_num, args):
-    if len(args) != 1 or not isCell(args[0]):
+    if len(args) != 1 or not isCons(args[0]):
         raise SchemeEvaluationError
     if elem_num == 0:
         return args[0].car
@@ -277,12 +281,84 @@ def create_list(*args):
     print("created list: " + str(list))
     return list
 
+def isList(arg):
+    if arg is Pair.EMPTY_LIST:
+        return True
+    return isinstance(arg, Pair) and isList(arg.cdr)
+
+def length_list(arg):
+    if arg == Pair.EMPTY_LIST:
+        return 0
+    if not isinstance(arg, Pair):
+        return 1
+    return 1 + length_list(arg.cdr)
+
+def get_list_elem(cons, index):
+    if not isinstance(cons, Pair):
+        raise SchemeEvaluationError
+    if index == 0:
+        return cons.car
+    return get_list_elem(cons.cdr, index-1)
+
+def get_last_pair_list(list):
+    if list.cdr is Pair.EMPTY_LIST:
+        return list
+    return get_last_pair_list(list.cdr)
+
+def extend_list(list, elem):
+    list.cdr = create_pair(elem, None)
+
+def append_lists(*args):
+    if len(args) == 0:
+        return Pair.EMPTY_LIST
+    for list in args:
+        if not isList(list):
+            raise SchemeEvaluationError
+
+    prev = create_pair(None, create_pair(None, None))
+    new_list = prev.cdr
+    cur = new_list
+    for list in args:
+        while list is not Pair.EMPTY_LIST:
+            cur.car = list.car
+            extend_list(cur, None)
+            prev, cur, list = prev.cdr, cur.cdr, list.cdr 
+    prev.cdr = None
+    if new_list.car == None:
+        new_list = Pair.EMPTY_LIST
+    print("appended lists: " + str(new_list))
+    return new_list
+
+def isListWrapper(*args):
+    if len(args) != 1:
+        raise SchemeEvaluationError
+    return isList(args[0])
+
+def listLengthWrapper(*args):
+    if len(args) != 1 or not isList(args[0]):
+        raise SchemeEvaluationError
+    return length_list(args[0])
+
+def listItemWrapper(*args):
+    if len(args) != 2:
+        raise SchemeEvaluationError
+    cons, index = args
+    if not isCons(cons) or not isNum(index) or index < 0:
+        raise SchemeEvaluationError
+    return get_list_elem(args[0], args[1])
+
+
 list_builtins = {
     "cons": create_pair,
     "car": lambda *args: get_pair_elem(0, args),
     "cdr": lambda *args: get_pair_elem(1, args),
     "list": create_list,
-}
+    "list?": isListWrapper,
+    "length": listLengthWrapper,
+    "list-ref": listItemWrapper,
+    "append": append_lists
+    }
+
 #############################
 # Global Variables #
 #############################
@@ -311,10 +387,8 @@ def isEmptyList(token):
 def isStr(token):
     return isinstance(token, str)
 
-def isList(token):
+def isExpression(token):
     return isinstance(token, list)
-
-
 
 
 def evaluate(tree, frame=None):
@@ -332,16 +406,14 @@ def evaluate(tree, frame=None):
         
     if isStr(tree):
         return get(tree, frame)
-    
-    print("tree: " + str(tree))
-    
+        
     first_elem = tree[0]
     func = evaluate(first_elem, frame)
     if not callable(func):
         raise SchemeEvaluationError
     
     if first_elem == "define":
-        if not isList(tree[1]):
+        if not isExpression(tree[1]):
             name = tree[1]
             value = evaluate(tree[2], frame)
         else: 
@@ -357,7 +429,7 @@ def evaluate(tree, frame=None):
     
     if first_elem == "and" or first_elem == "or":
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
-    
+    print("tree: " + str(tree))
     args = []
     for i in range(1, len(tree)):
         args.append(evaluate(tree[i], frame))
