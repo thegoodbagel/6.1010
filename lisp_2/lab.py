@@ -158,6 +158,10 @@ def create_variable(variable, value, frame):
     return value
 
 def get(variable, frame):
+    if isNum(variable):
+        return variable
+    if isExpression(variable) and variable[0] != 'lambda':
+        raise SchemeEvaluationError
     while frame:
         if variable in frame.namespace:
             return frame.namespace[variable]
@@ -357,11 +361,22 @@ list_builtins = {
     }
 
 #############################
+# Reading from Files #
+#############################
+
+def evaluate_file(filename: str, frame=None):
+    file = open(filename)
+    expr = file.read()
+    print("expression to evaluate:")
+    print(expr)
+    return evaluate(parse(tokenize(expr)), frame)
+
+#############################
 # Global Variables #
 #############################
 
 frame_builtins = {
-    "define": create_variable,
+    "define": lambda: None,
     "lambda": create_function,
     "if": evaluate_conditional,
     "begin": lambda: None,
@@ -373,6 +388,12 @@ GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtin
 # Evaluation #
 #############################
 
+def isFunc(token):
+    return isinstance(token, Function)
+
+def isPair(token):
+    return isinstance(token, Pair)
+
 def isNum(token):
     return isinstance(token, int) or isinstance(token, float)
 
@@ -380,7 +401,7 @@ def isBool(token):
     return (isStr(token) and token in booleans)
 
 def isEmptyList(token):
-    return len(token)==0
+    return token == []
 
 def isStr(token):
     return isinstance(token, str)
@@ -388,10 +409,17 @@ def isStr(token):
 def isExpression(token):
     return isinstance(token, list)
 
-
 def evaluate(tree, frame=None):
     if frame == None:
         frame = make_initial_frame()
+
+    print("tree: " + str(tree))
+
+    if isFunc(tree):
+        return tree
+
+    if isPair(tree):
+        return tree
 
     if isNum(tree):
         return tree
@@ -427,8 +455,7 @@ def evaluate(tree, frame=None):
     
     if first_elem == "and" or first_elem == "or":
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
-    
-    print("tree: " + str(tree))
+
     args = []
     for i in range(1, len(tree)):
         args.append(evaluate(tree[i], frame))
@@ -443,5 +470,9 @@ def evaluate(tree, frame=None):
 if __name__ == "__main__":
     import os
     sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+    initial_frame = make_initial_frame()
+    for filename in sys.argv:
+        if filename != "lab.py":
+            evaluate_file(filename, initial_frame)
     import schemerepl
-    schemerepl.SchemeREPL(sys.modules[__name__], use_frames=True, verbose=False, repl_frame=None).cmdloop()
+    schemerepl.SchemeREPL(sys.modules[__name__], use_frames=True, verbose=False, repl_frame=initial_frame).cmdloop()
