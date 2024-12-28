@@ -187,7 +187,7 @@ class Function:
         return evaluate(self.expr, new_frame)
     
     def __str__(self):
-        return "a function"
+        return f"( lambda {str(self.param)} ({self.expr}))"
 
 def create_function(arg, expr, frame):
     new_func = Function(arg, expr, frame)
@@ -367,8 +367,6 @@ list_builtins = {
 def evaluate_file(filename: str, frame=None):
     file = open(filename)
     expr = file.read()
-    print("expression to evaluate:")
-    print(expr)
     return evaluate(parse(tokenize(expr)), frame)
 
 #############################
@@ -413,7 +411,7 @@ def evaluate(tree, frame=None):
     if frame == None:
         frame = make_initial_frame()
 
-    print("tree: " + str(tree))
+    # print("tree: " + str(tree))
 
     if isFunc(tree):
         return tree
@@ -462,7 +460,6 @@ def evaluate(tree, frame=None):
 
     if first_elem == "begin":
         return evaluate(args[-1])
-
     return func(*tuple(args))
 
 
@@ -475,4 +472,4 @@ if __name__ == "__main__":
         if filename != "lab.py":
             evaluate_file(filename, initial_frame)
     import schemerepl
-    schemerepl.SchemeREPL(sys.modules[__name__], use_frames=True, verbose=False, repl_frame=initial_frame).cmdloop()
+    schemerepl.SchemeREPL(sys.modules[__name__], use_frames=True, verbose=True, repl_frame=initial_frame).cmdloop()
