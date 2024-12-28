@@ -369,6 +369,52 @@ def evaluate_file(filename: str, frame=None):
     expr = file.read()
     return evaluate(parse(tokenize(expr)), frame)
 
+
+#############################
+# Variable-Binding #
+#############################
+
+def delete_variable(*args):
+    if len(args) != 2:
+        raise SchemeEvaluationError
+    var, frame = args
+    print('deleting variable ' + str(var))
+    if var not in frame.namespace:
+        raise SchemeNameError
+    val = frame.namespace[var]
+    del frame.namespace[var]
+    return val
+
+def create_local_variable(*args):
+    if len(args) != 3:
+        raise SchemeEvaluationError
+    vars, body, frame = args
+    new_frame = Frame(frame)
+    for var_pair in vars:
+        if len(var_pair) != 2:
+            raise SchemeEvaluationError
+    for [var, val] in vars:
+        new_frame.namespace[var] = evaluate(val, frame)
+    return evaluate(body, new_frame)
+
+def update_variable(*args):
+    if len(args) != 3:
+        raise SchemeEvaluationError
+    var, expr, frame = args
+    new_val = evaluate(expr, frame)
+    while frame:
+        if var in frame.namespace:
+            frame.namespace[var] = new_val
+            return new_val
+        frame = frame.parent
+    raise SchemeNameError
+
+variable_builtins = {
+    "del": delete_variable,
+    "let": create_local_variable,
+    "set!": update_variable,
+}
+
 #############################
 # Global Variables #
 #############################
@@ -380,7 +426,8 @@ frame_builtins = {
     "begin": lambda: None,
 }
 
-GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtins | list_builtins)
+GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins \
+                      | frame_builtins | list_builtins | variable_builtins)
 
 #############################
 # Evaluation #
@@ -411,7 +458,7 @@ def evaluate(tree, frame=None):
     if frame == None:
         frame = make_initial_frame()
 
-    # print("tree: " + str(tree))
+    print("tree: " + str(tree))
 
     if isFunc(tree):
         return tree
@@ -453,6 +500,10 @@ def evaluate(tree, frame=None):
     
     if first_elem == "and" or first_elem == "or":
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
+
+    if first_elem == "del" or first_elem == "let" or first_elem == "set!":
+        print("deleting variable " + str(tree[1:]))
+        return variable_builtins[first_elem](*tree[1:], frame)
 
     args = []
     for i in range(1, len(tree)):
