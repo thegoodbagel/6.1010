@@ -378,7 +378,6 @@ def delete_variable(*args):
     if len(args) != 2:
         raise SchemeEvaluationError
     var, frame = args
-    print('deleting variable ' + str(var))
     if var not in frame.namespace:
         raise SchemeNameError
     val = frame.namespace[var]
@@ -446,7 +445,7 @@ def isBool(token):
     return (isStr(token) and token in booleans)
 
 def isEmptyList(token):
-    return token == []
+    return token == [] or token is None
 
 def isStr(token):
     return isinstance(token, str)
@@ -457,8 +456,6 @@ def isExpression(token):
 def evaluate(tree, frame=None):
     if frame == None:
         frame = make_initial_frame()
-
-    print("tree: " + str(tree))
 
     if isFunc(tree):
         return tree
@@ -502,7 +499,6 @@ def evaluate(tree, frame=None):
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
 
     if first_elem == "del" or first_elem == "let" or first_elem == "set!":
-        print("deleting variable " + str(tree[1:]))
         return variable_builtins[first_elem](*tree[1:], frame)
 
     args = []
