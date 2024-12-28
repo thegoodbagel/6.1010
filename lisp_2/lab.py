@@ -254,7 +254,6 @@ class Pair:
         return f'({self.car}, {self.cdr})'
     
     def __eq__(self, other):
-        print("comparing pairs: " + str(self) + " and " + str(other))
         if type(self) != type(other):
             return False
         return self.car == other.car and self.cdr == other.cdr
@@ -278,7 +277,6 @@ def create_list(*args):
     list = Pair.EMPTY_LIST
     for i in range(len(args)-1, -1, -1):
         list = create_pair(args[i], list)
-    print("created list: " + str(list))
     return list
 
 def isList(arg):
@@ -326,7 +324,6 @@ def append_lists(*args):
     prev.cdr = None
     if new_list.car == None:
         new_list = Pair.EMPTY_LIST
-    print("appended lists: " + str(new_list))
     return new_list
 
 def isListWrapper(*args):
@@ -367,6 +364,7 @@ frame_builtins = {
     "define": create_variable,
     "lambda": create_function,
     "if": evaluate_conditional,
+    "begin": lambda: None,
 }
 
 GLOBAL_FRAME = Frame(None, scheme_builtins | comparison_builtins | frame_builtins | list_builtins)
@@ -429,11 +427,17 @@ def evaluate(tree, frame=None):
     
     if first_elem == "and" or first_elem == "or":
         return comparison_builtins[first_elem]([tree[i] for i in range(1, len(tree))], frame)
+    
     print("tree: " + str(tree))
     args = []
     for i in range(1, len(tree)):
         args.append(evaluate(tree[i], frame))
+
+    if first_elem == "begin":
+        return evaluate(args[-1])
+
     return func(*tuple(args))
+
 
 
 if __name__ == "__main__":
